@@ -48,14 +48,15 @@ while True:
         audio_data = record_audio(duration=5, fs=sr)
 
         # Save recorded audio to a temporary file
-        write("temp_audio.wav", sr, audio_data)
+        write("input_audio.wav", sr, audio_data)
 
         # Enhance the audio
-        with AudioFile("temp_audio.wav").resampled_to(sr) as f:
+        with AudioFile("input_audio.wav").resampled_to(sr) as f:
             recorded_audio = f.read(f.frames)
 
         # Apply noise reduction and audio effects
         enhanced_audio = enhance_audio(recorded_audio, sr)
+
 
         # Save the enhanced audio as a temporary file
         with AudioFile("enhanced_audio.wav", 'w', sr, enhanced_audio.shape[0]) as f:
