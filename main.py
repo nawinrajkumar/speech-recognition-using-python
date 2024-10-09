@@ -6,6 +6,8 @@ import numpy as np
 from pedalboard.io import AudioFile
 from pedalboard import *
 from scipy.io.wavfile import write
+import argparse
+import os
 
 # Initialize recognizer and text-to-speech engine
 recognizer = speech_recognition.Recognizer()
@@ -39,31 +41,37 @@ def record_audio(duration=5, fs=sr):
     print("Recording complete.")
     return recording[:, 0]  # Return a single channel of audio
 
-# Main loop for speech recognition with noise reduction
-while True:
+# Process audio from a file
+def process_audio_file(file_path):
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"The file '{file_path}' does not exist.")
+    
+    print(f"Processing audio file: {file_path}")
+    with AudioFile(file_path).resampled_to(sr) as f:
+        return f.read(f.frames)
+
+# Main function to handle input and recognition
+def main(input_source, duration=5):
     try:
-        print("Listening...")
-
-        # Record audio for 5 seconds
-        audio_data = record_audio(duration=5, fs=sr)
-
-        # Save recorded audio to a temporary file
-        write("input_audio.wav", sr, audio_data)
-
-        # Enhance the audio
-        with AudioFile("input_audio.wav").resampled_to(sr) as f:
-            recorded_audio = f.read(f.frames)
+        if input_source == '0':
+            # Record audio from microphone
+            audio_data = record_audio(duration=duration, fs=sr)
+            write("input_audio.wav", sr, audio_data)
+            recorded_audio = process_audio_file("input_audio.wav")
+        else:
+            # Process audio from the provided file path
+            recorded_audio = process_audio_file(input_source)
 
         # Apply noise reduction and audio effects
         enhanced_audio = enhance_audio(recorded_audio, sr)
 
-
-        # Save the enhanced audio as a temporary file
-        with AudioFile("enhanced_audio.wav", 'w', sr, enhanced_audio.shape[0]) as f:
+        # Save the enhanced audio to a temporary file
+        enhanced_file_path = "enhanced_audio.wav"
+        with AudioFile(enhanced_file_path, 'w', sr, enhanced_audio.shape[0]) as f:
             f.write(enhanced_audio)
 
         # Use SpeechRecognition library to convert enhanced audio to text
-        with speech_recognition.AudioFile("enhanced_audio.wav") as source:
+        with speech_recognition.AudioFile(enhanced_file_path) as source:
             recognizer.adjust_for_ambient_noise(source)
             audio = recognizer.record(source)
 
@@ -71,16 +79,31 @@ while True:
         text = recognizer.recognize_google(audio)
         print(f"Recognized Text: {text}")
 
-        # Exit loop if the recognized text is 'exit'
-        if text.lower() == 'exit':
-            print("Exiting...")
-            break
+        return text
 
     except speech_recognition.RequestError:
         print('Network error')
     except speech_recognition.UnknownValueError:
         print('Unable to recognize speech')
-    except speech_recognition.WaitTimeoutError:
-        print('Timeout error')
-    except KeyboardInterrupt:
-        break
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Speech Recognition using Python.')
+    parser.add_argument(
+        'input_source', 
+        type=str, 
+        help="Specify '0' to use the microphone or provide a file path to an audio file."
+    )
+    parser.add_argument(
+        '--duration', 
+        type=int, 
+        default=5, 
+        help='Duration of the audio recording in seconds (only applicable if using microphone).'
+    )
+
+    args = parser.parse_args()
+
+    # Call the main function with input source and duration
+    main(input_source=args.input_source, duration=args.duration)
