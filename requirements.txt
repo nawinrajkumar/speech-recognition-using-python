@@ -1,0 +1,8 @@
+speechrecognition
+pyttsx3
+
+
+pedalboard 
+noisereduce 
+sounddevice 
+scipy 
